@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinguaLink - Multilingual Messaging</title>
+    <link href="./output.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-messaging-compat.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import "tailwindcss";
+        .chat-bubble {
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .online-indicator {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .notification-badge {
+            animation: bounce 1s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 min-h-screen">
+    
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-white mb-4 mx-auto"></div>
+            <h2 class="text-white text-2xl font-bold">LinguaLink</h2>
+            <p class="text-purple-200">Connecting Languages, Connecting Hearts</p>
+        </div>
+    </div>
+
+    <!-- Authentication Screen -->
+    <div id="authScreen" class="hidden fixed inset-0 bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center">
+        <div class="bg-white/10 backdrop-blur-lg rounded-3xl p-8 w-full max-w-md mx-4 border border-white/20">
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-white mb-2">LinguaLink</h1>
+                <p class="text-purple-200">Connect across languages</p>
+            </div>
+            
+            <div id="loginForm" class="space-y-6">
+                <div>
+                    <input type="email" id="loginEmail" placeholder="Email" 
+                           class="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                </div>
+                <div>
+                    <input type="password" id="loginPassword" placeholder="Password" 
+                           class="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                </div>
+                <button onclick="signIn()" class="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-indigo-600 transition duration-300">
+                    Sign In
+                </button>
+                <button onclick="signInWithGoogle()" class="w-full bg-white text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300 flex items-center justify-center">
+                    <i class="fab fa-google mr-2"></i> Continue with Google
+                </button>
+                <p class="text-center text-white/70">
+                    Don't have an account? 
+                    <span onclick="showSignUpForm()" class="text-purple-300 cursor-pointer hover:text-purple-200">Sign up</span>
+                </p>
+            </div>
+
+            <div id="signupForm" class="hidden space-y-6">
+                <div>
+                    <input type="text" id="signupName" placeholder="Full Name" 
+                           class="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                </div>
+                <div>
+                    <input type="email" id="signupEmail" placeholder="Email" 
+                           class="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                </div>
+                <div>
+                    <input type="password" id="signupPassword" placeholder="Password" 
+                           class="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                </div>
+                <div>
+                    <select id="signupLanguage" class="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                        <option value="en" class="text-gray-800">English</option>
+                        <option value="hi" class="text-gray-800">हिन्दी (Hindi)</option>
+                        <option value="es" class="text-gray-800">Español (Spanish)</option>
+                        <option value="fr" class="text-gray-800">Français (French)</option>
+                        <option value="de" class="text-gray-800">Deutsch (German)</option>
+                        <option value="zh" class="text-gray-800">中文 (Chinese)</option>
+                        <option value="ja" class="text-gray-800">日本語 (Japanese)</option>
+                        <option value="ar" class="text-gray-800">العربية (Arabic)</option>
+                    </select>
+                </div>
+                <button onclick="signUp()" class="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-indigo-600 transition duration-300">
+                    Sign Up
+                </button>
+                <p class="text-center text-white/70">
+                    Already have an account? 
+                    <span onclick="showLoginForm()" class="text-purple-300 cursor-pointer hover:text-purple-200">Sign in</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="hidden flex h-screen">
+        <!-- Sidebar -->
+        <div class="w-80 bg-white/10 backdrop-blur-lg border-r border-white/20 flex flex-col">
+            <!-- Header -->
+            <div class="p-6 border-b border-white/20">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-white">LinguaLink</h2>
+                    <div class="flex space-x-2">
+                        <button onclick="showSettings()" class="p-2 rounded-lg bg-white/20 text-white hover:bg-white/30 transition duration-300">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button onclick="signOut()" class="p-2 rounded-lg bg-white/20 text-white hover:bg-white/30 transition duration-300">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- User Profile -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-gradient-to-r from-purple-400 to-indigo-400 rounded-full flex items-center justify-center">
+                        <span id="userInitials" class="text-white font-bold text-lg"></span>
+                    </div>
+                    <div>
+                        <p id="userName" class="text-white font-semibold"></p>
+                        <p id="userLanguage" class="text-purple-200 text-sm"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex border-b border-white/20">
+                <button onclick="showChats()" id="chatsTab" class="flex-1 py-3 px-4 text-white font-semibold bg-white/20">
+                    <i class="fas fa-comment mr-2"></i>Chats
+                </button>
+                <button onclick="showFriends()" id="friendsTab" class="flex-1 py-3 px-4 text-white/70 font-semibold hover:bg-white/10">
+                    <i class="fas fa-users mr-2"></i>Friends
+                </button>
+            </div>
+
+            <!-- Search -->
+            <div class="p-4">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="Search users..." 
+                           class="w-full px-4 py-2 pl-10 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                    <i class="fas fa-search absolute left-3 top-3 text-white/70"></i>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-y-auto">
+                <!-- Chats List -->
+                <div id="chatsList" class="p-4 space-y-2">
+                    <!-- Chat items will be populated here -->
+                </div>
+
+                <!-- Friends List -->
+                <div id="friendsList" class="hidden p-4 space-y-2">
+                    <!-- Friend items will be populated here -->
+                </div>
+
+                <!-- Search Results -->
+                <div id="searchResults" class="hidden p-4 space-y-2">
+                    <!-- Search results will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Chat Header -->
+            <div id="chatHeader" class="hidden bg-white/10 backdrop-blur-lg border-b border-white/20 p-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-400 rounded-full flex items-center justify-center">
+                        <span id="chatUserInitials" class="text-white font-bold"></span>
+                    </div>
+                    <div>
+                        <h3 id="chatUserName" class="text-white font-semibold"></h3>
+                        <p id="chatUserStatus" class="text-green-300 text-sm">
+                            <span class="online-indicator inline-block w-2 h-2 bg-green-400 rounded-full mr-1"></span>
+                            Online
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Welcome Screen -->
+            <div id="welcomeScreen" class="flex-1 flex items-center justify-center">
+                <div class="text-center">
+                    <div class="w-24 h-24 bg-gradient-to-r from-purple-400 to-indigo-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-language text-white text-3xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Welcome to LinguaLink</h3>
+                    <p class="text-purple-200">Select a conversation or find new friends to start chatting</p>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div id="messagesArea" class="hidden flex-1 overflow-y-auto p-4 space-y-4">
+                <!-- Messages will be populated here -->
+            </div>
+
+            <!-- Message Input -->
+            <div id="messageInput" class="hidden bg-white/10 backdrop-blur-lg border-t border-white/20 p-4">
+                <div class="flex space-x-3">
+                    <input type="text" id="messageText" placeholder="Type your message..." 
+                           class="flex-1 px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                    <button onclick="sendMessage()" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition duration-300">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white/10 backdrop-blur-lg rounded-3xl p-8 w-full max-w-md mx-4 border border-white/20">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold text-white">Settings</h3>
+                <button onclick="hideSettings()" class="text-white/70 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-white font-semibold mb-2">Language Preference</label>
+                    <select id="settingsLanguage" class="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                        <option value="en" class="text-gray-800">English</option>
+                        <option value="hi" class="text-gray-800">हिन्दी (Hindi)</option>
+                        <option value="es" class="text-gray-800">Español (Spanish)</option>
+                        <option value="fr" class="text-gray-800">Français (French)</option>
+                        <option value="de" class="text-gray-800">Deutsch (German)</option>
+                        <option value="zh" class="text-gray-800">中文 (Chinese)</option>
+                        <option value="ja" class="text-gray-800">日本語 (Japanese)</option>
+                        <option value="ar" class="text-gray-800">العربية (Arabic)</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-white font-semibold mb-2">Display Name</label>
+                    <input type="text" id="settingsName" 
+                           class="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                </div>
+
+                <div class="flex space-x-3">
+                    <button onclick="saveSettings()" class="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 text-white py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-indigo-600 transition duration-300">
+                        Save Changes
+                    </button>
+                    <button onclick="hideSettings()" class="flex-1 bg-white/20 text-white py-3 rounded-lg font-semibold hover:bg-white/30 transition duration-300">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="hidden fixed top-4 right-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+        <div class="flex items-center space-x-2">
+            <i class="fas fa-check-circle"></i>
+            <span id="notificationText"></span>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration (Replace with your config)
+        const firebaseConfig = {
+  apiKey: "AIzaSyAwXL7yDqBFADd2r3xzgo2RajlLJ4XF5NI",
+  authDomain: "lang-bang.firebaseapp.com",
+  projectId: "lang-bang",
+  storageBucket: "lang-bang.firebasestorage.app",
+  messagingSenderId: "984482484844",
+  appId: "1:984482484844:web:c2bcb17b8c2baf68253e49",
+  measurementId: "G-2JMGQZ6TPB"
+};
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let messaging;
+
+        // Global variables
+        let currentUser = null;
+        let currentChatId = null;
+        let currentChatUser = null;
+        let unsubscribeChats = null;
+        let unsubscribeMessages = null;
+
+        // Language codes to names mapping
+        const languageNames = {
+            'en': 'English',
+            'hi': 'हिन्दी',
+            'es': 'Español',
+            'fr': 'Français',
+            'de': 'Deutsch',
+            'zh': '中文',
+            'ja': '日本語',
+            'ar': 'العربية'
+        };
+
+        // Initialize app
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loadingScreen').classList.add('hidden');
+                
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        currentUser = user;
+                        initializeApp();
+                    } else {
+                        showAuthScreen();
+                    }
+                });
+            }, 1500);
+        });
+
+        // Auth functions
+        function showAuthScreen() {
+            document.getElementById('authScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+        }
+
+        function showLoginForm() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('signupForm').classList.add('hidden');
+        }
+
+        function showSignUpForm() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('signupForm').classList.remove('hidden');
+        }
+
+        async function signIn() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!email || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                showNotification('Welcome back!');
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        async function signUp() {
+            const name = document.getElementById('signupName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const language = document.getElementById('signupLanguage').value;
+            
+            if (!name || !email || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                const result = await auth.createUserWithEmailAndPassword(email, password);
+                
+                // Create user profile
+                await db.collection('users').doc(result.user.uid).set({
+                    name: name,
+                    email: email,
+                    language: language,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+                    isOnline: true
+                });
+
+                showNotification('Account created successfully!');
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        async function signInWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            
+            try {
+                const result = await auth.signInWithPopup(provider);
+                
+                // Check if user profile exists
+                const userDoc = await db.collection('users').doc(result.user.uid).get();
+                
+                if (!userDoc.exists) {
+                    // Create profile for new Google user
+                    await db.collection('users').doc(result.user.uid).set({
+                        name: result.user.displayName,
+                        email: result.user.email,
+                        language: 'en',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+                        isOnline: true
+                    });
+                }
+
+                showNotification('Welcome!');
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        async function signOut() {
+            if (currentUser) {
+                // Update online status
+                await db.collection('users').doc(currentUser.uid).update({
+                    isOnline: false,
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            
+            await auth.signOut();
+            showAuthScreen();
+        }
+
+        // App initialization
+        async function initializeApp() {
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            // Update online status
+            await db.collection('users').doc(currentUser.uid).update({
+                isOnline: true,
+                lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Load user profile
+            const userDoc = await db.collection('users').doc(currentUser.uid).get();
+            const userData = userDoc.data();
+            
+            document.getElementById('userName').textContent = userData.name;
+            document.getElementById('userInitials').textContent = getInitials(userData.name);
+            document.getElementById('userLanguage').textContent = languageNames[userData.language];
+            
+            // Initialize FCM
+            initializeFCM();
+            
+            // Load chats
+            loadChats();
+            
+            // Setup search
+            setupSearch();
+        }
+
+        // FCM initialization
+        async function initializeFCM() {
+            try {
+                messaging = firebase.messaging();
+                
+                // Request permission
+                const permission = await Notification.requestPermission();
+                
+                if (permission === 'granted') {
+                    const token = await messaging.getToken();
+                    
+                    // Save token to user profile
+                    await db.collection('users').doc(currentUser.uid).update({
+                        fcmToken: token
+                    });
+                }
+                
+                // Handle foreground messages
+                messaging.onMessage((payload) => {
+                    showNotification(`New message from ${payload.notification.title}`);
+                });
+                
+            } catch (error) {
+                console.error('FCM initialization failed:', error);
+            }
+        }
+
+        // Chat functions
+        function showChats() {
+            document.getElementById('chatsTab').classList.add('bg-white/20');
+            document.getElementById('chatsTab').classList.remove('text-white/70');
+            document.getElementById('friendsTab').classList.remove('bg-white/20');
+            document.getElementById('friendsTab').classList.add('text-white/70');
+            
+            document.getElementById('chatsList').classList.remove('hidden');
+            document.getElementById('friendsList').classList.add('hidden');
+            document.getElementById('searchResults').classList.add('hidden');
+        }
+
+        function showFriends() {
+            document.getElementById('friendsTab').classList.add('bg-white/20');
+            document.getElementById('friendsTab').classList.remove('text-white/70');
+            document.getElementById('chatsTab').classList.remove('bg-white/20');
+            document.getElementById('chatsTab').classList.add('text-white/70');
+            
+            document.getElementById('friendsList').classList.remove('hidden');
+            document.getElementById('chatsList').classList.add('hidden');
+            document.getElementById('searchResults').classList.add('hidden');
+            
+            loadFriends();
+        }
+
+        async function loadChats() {
+            if (unsubscribeChats) unsubscribeChats();
+            
+            unsubscribeChats = db.collection('chats')
+                .where('participants', 'array-contains', currentUser.uid)
+                .orderBy('lastMessageTime', 'desc')
+                .onSnapshot(snapshot => {
+                    const chatsList = document.getElementById('chatsList');
+                    chatsList.innerHTML = '';
+                    
+                    snapshot.forEach(doc => {
+                        const chat = doc.data();
+                        const otherUserId = chat.participants.find(id => id !== currentUser.uid);
+                        
+                        if (otherUserId) {
+                            renderChatItem(doc.id, chat, otherUserId);
+                        }
+                    });
+                });
+        }
+
+        async function renderChatItem(chatId, chat, otherUserId) {
+            const userDoc = await db.collection('users').doc(otherUserId).get();
+            const userData = userDoc.data();
+            
+            if (!userData) return;
+            
+            const chatItem = document.createElement('div');
+            chatItem.className = 'flex items-center space-x-3 p-3 rounded-lg bg-white/10 hover:bg-white/20 cursor-pointer transition duration-300';
+            chatItem.onclick = () => openChat(chatId, otherUserId, userData);
+            
+            const unreadBadge = chat.unreadCount && chat.unreadCount[currentUser.uid] > 0 
+                ? `<span class="notification-badge inline-block w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">${chat.unreadCount[currentUser.uid]}</span>`
+                : '';
+            
+            chatItem.innerHTML = `
+                <div class="w-12 h-12 bg-gradient-to-r from-green-400 to-blue-400 rounded-full flex items-center justify-center">
+                    <span class="text-white font-bold">${getInitials(userData.name)}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-white font-semibold truncate">${userData.name}</p>
+                    <p class="text-white/70 text-sm truncate">${chat.lastMessage || 'Start a conversation'}</p>
+                </div>
+                <div class="flex flex-col items-end space-y-1">
+                    <span class="text-white/50 text-xs">${formatTime(chat.lastMessageTime)}</span>
+                    ${unreadBadge}
+                </div>
+            `;
+            
+            document.getElementById('chatsList').appendChild(chatItem);
+        }
+
+        async function openChat(chatId, otherUserId, userData) {
+            currentChatId = chatId;
+            currentChatUser = userData;
+            
+            // Show chat interface
+            document.getElementById('welcomeScreen').classList.add('hidden');
+            document.getElementById('chatHeader').classList.remove('hidden');
+            document.getElementById('messagesArea').classList.remove('hidden');
+            document.getElementById('messageInput').classList.remove('hidden');
+            
+            // Update chat header
+            document.getElementById('chatUserName').textContent = userData.name;
+            document.getElementById('chatUserInitials').textContent = getInitials(userData.name);
+            
+            // Mark messages as read
+            await db.collection('chats').doc(chatId).update({
+                [`unreadCount.${currentUser.uid}`]: 0
+            });
+            
+            // Load messages
+            loadMessages(chatId);
+        }
+
+        function loadMessages(chatId) {
+            if (unsubscribeMessages) unsubscribeMessages();
+            
+            unsubscribeMessages = db.collection('chats').doc(chatId)
+                .collection('messages')
+                .orderBy('timestamp', 'asc')
+                .onSnapshot(snapshot => {
+                    const messagesArea = document.getElementById('messagesArea');
+                    messagesArea.innerHTML = '';
+                    
+                    snapshot.forEach(doc => {
+                        const message = doc.data();
+                        renderMessage(message);
+                    });
+                    
+                    // Scroll to bottom
+                    messagesArea.scrollTop = messagesArea.scrollHeight;
+                });
+        }
+
+        function renderMessage(message) {
+            const isOwn = message.senderId === currentUser.uid;
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-bubble flex ${isOwn ? 'justify-end' : 'justify-start'}`;
+            
+            const translationIndicator = message.isTranslated 
+                ? `<div class="text-xs text-blue-300 mb-1"><i class="fas fa-language mr-1"></i>Translated</div>`
+                : '';
+            
+            messageDiv.innerHTML = `
+                <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isOwn 
+                    ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white' 
+                    : 'bg-white/20 text-white'}">
+                    ${translationIndicator}
+                    <p class="break-words">${message.text}</p>
+                    <div class="flex items-center justify-between mt-1">
+                        <span class="text-xs opacity-70">${formatTime(message.timestamp)}</span>
+                        ${isOwn ? '<i class="fas fa-check text-xs ml-2"></i>' : ''}
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('messagesArea').appendChild(messageDiv);
+        }
+
+        async function sendMessage() {
+            const messageText = document.getElementById('messageText').value.trim();
+            
+            if (!messageText || !currentChatId) return;
+            
+            try {
+                // Get recipient's language preference
+                const chatDoc = await db.collection('chats').doc(currentChatId).get();
+                const chatData = chatDoc.data();
+                const recipientId = chatData.participants.find(id => id !== currentUser.uid);
+                
+                const recipientDoc = await db.collection('users').doc(recipientId).get();
+                const recipientData = recipientDoc.data();
+                
+                const currentUserDoc = await db.collection('users').doc(currentUser.uid).get();
+                const currentUserData = currentUserDoc.data();
+                
+                let translatedText = messageText;
+                let isTranslated = false;
+                
+                // Translate if languages are different
+                if (currentUserData.language !== recipientData.language) {
+                    translatedText = await translateText(messageText, currentUserData.language, recipientData.language);
+                    isTranslated = true;
+                }
+                
+                // Add message to chat
+                await db.collection('chats').doc(currentChatId)
+                    .collection('messages').add({
+                        text: translatedText,
+                        originalText: messageText,
+                        senderId: currentUser.uid,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        isTranslated: isTranslated
+                    });
+                
+                // Update chat metadata
+                await db.collection('chats').doc(currentChatId).update({
+                    lastMessage: translatedText,
+                    lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
+                    [`unreadCount.${recipientId}`]: firebase.firestore.FieldValue.increment(1)
+                });
+                
+                // Send push notification
+                if (recipientData.fcmToken) {
+                    await sendPushNotification(recipientData.fcmToken, currentUserData.name, translatedText);
+                }
+                
+                // Clear input
+                document.getElementById('messageText').value = '';
+                
+            } catch (error) {
+                console.error('Error sending message:', error);
+                showNotification('Failed to send message', 'error');
+            }
+        }
+
+        // Handle Enter key in message input
+        document.getElementById('messageText').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Translation function (using Google Translate API or mock implementation)
+        async function translateText(text, fromLang, toLang) {
+            // Mock translation - replace with actual Google Translate API
+            const translations = {
+                'en-hi': {
+                    'hello': 'नमस्ते',
+                    'how are you': 'आप कैसे हैं',
+                    'good morning': 'सुप्रभात',
+                    'thank you': 'धन्यवाद'
+                },
+                'hi-en': {
+                    'नमस्ते': 'hello',
+                    'आप कैसे हैं': 'how are you',
+                    'सुप्रभात': 'good morning',
+                    'धन्यवाद': 'thank you'
+                },
+                'en-es': {
+                    'hello': 'hola',
+                    'how are you': 'cómo estás',
+                    'good morning': 'buenos días',
+                    'thank you': 'gracias'
+                },
+                'es-en': {
+                    'hola': 'hello',
+                    'cómo estás': 'how are you',
+                    'buenos días': 'good morning',
+                    'gracias': 'thank you'
+                }
+            };
+            
+            const key = `${fromLang}-${toLang}`;
+            const lowerText = text.toLowerCase();
+            
+            return translations[key] && translations[key][lowerText] 
+                ? translations[key][lowerText] 
+                : `[Translated] ${text}`;
+        }
+
+        // Push notification function
+        async function sendPushNotification(token, senderName, message) {
+            // This would typically be handled by your backend
+            // Mock implementation for demo
+            console.log(`Push notification to ${token}: ${senderName} - ${message}`);
+        }
+
+        // Friends functionality
+        async function loadFriends() {
+            try {
+                const friendsSnapshot = await db.collection('users')
+                    .where('email', '!=', currentUser.email)
+                    .limit(20)
+                    .get();
+                
+                const friendsList = document.getElementById('friendsList');
+                friendsList.innerHTML = '';
+                
+                friendsSnapshot.forEach(doc => {
+                    const userData = doc.data();
+                    renderFriendItem(doc.id, userData);
+                });
+                
+            } catch (error) {
+                console.error('Error loading friends:', error);
+            }
+        }
+
+        function renderFriendItem(userId, userData) {
+            const friendItem = document.createElement('div');
+            friendItem.className = 'flex items-center space-x-3 p-3 rounded-lg bg-white/10 hover:bg-white/20 transition duration-300';
+            
+            const statusColor = userData.isOnline ? 'bg-green-400' : 'bg-gray-400';
+            const statusText = userData.isOnline ? 'Online' : 'Offline';
+            
+            friendItem.innerHTML = `
+                <div class="w-12 h-12 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full flex items-center justify-center">
+                    <span class="text-white font-bold">${getInitials(userData.name)}</span>
+                </div>
+                <div class="flex-1">
+                    <p class="text-white font-semibold">${userData.name}</p>
+                    <p class="text-white/70 text-sm">
+                        <span class="inline-block w-2 h-2 ${statusColor} rounded-full mr-1"></span>
+                        ${statusText} • ${languageNames[userData.language]}
+                    </p>
+                </div>
+                <button onclick="startChat('${userId}')" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition duration-300">
+                    <i class="fas fa-comment"></i>
+                </button>
+            `;
+            
+            document.getElementById('friendsList').appendChild(friendItem);
+        }
+
+        async function startChat(otherUserId) {
+            try {
+                // Check if chat already exists
+                const existingChat = await db.collection('chats')
+                    .where('participants', 'array-contains', currentUser.uid)
+                    .get();
+                
+                let chatId = null;
+                
+                existingChat.forEach(doc => {
+                    const chat = doc.data();
+                    if (chat.participants.includes(otherUserId)) {
+                        chatId = doc.id;
+                    }
+                });
+                
+                // Create new chat if doesn't exist
+                if (!chatId) {
+                    const newChat = await db.collection('chats').add({
+                        participants: [currentUser.uid, otherUserId],
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastMessage: '',
+                        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
+                        unreadCount: {
+                            [currentUser.uid]: 0,
+                            [otherUserId]: 0
+                        }
+                    });
+                    chatId = newChat.id;
+                }
+                
+                // Get other user data and open chat
+                const otherUserDoc = await db.collection('users').doc(otherUserId).get();
+                const otherUserData = otherUserDoc.data();
+                
+                await openChat(chatId, otherUserId, otherUserData);
+                
+                // Switch to chats tab
+                showChats();
+                
+            } catch (error) {
+                console.error('Error starting chat:', error);
+                showNotification('Failed to start chat', 'error');
+            }
+        }
+
+        // Search functionality
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            let searchTimeout;
+            
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                if (query.length === 0) {
+                    document.getElementById('searchResults').classList.add('hidden');
+                    if (document.getElementById('chatsTab').classList.contains('bg-white/20')) {
+                        document.getElementById('chatsList').classList.remove('hidden');
+                    } else {
+                        document.getElementById('friendsList').classList.remove('hidden');
+                    }
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => {
+                    performSearch(query);
+                }, 300);
+            });
+        }
+
+        async function performSearch(query) {
+            try {
+                const searchResults = await db.collection('users')
+                    .where('name', '>=', query)
+                    .where('name', '<=', query + '\uf8ff')
+                    .limit(10)
+                    .get();
+                
+                const resultsContainer = document.getElementById('searchResults');
+                resultsContainer.innerHTML = '';
+                
+                if (searchResults.empty) {
+                    resultsContainer.innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-search text-white/50 text-3xl mb-2"></i>
+                            <p class="text-white/70">No users found</p>
+                        </div>
+                    `;
+                } else {
+                    searchResults.forEach(doc => {
+                        if (doc.id !== currentUser.uid) {
+                            const userData = doc.data();
+                            renderSearchResult(doc.id, userData);
+                        }
+                    });
+                }
+                
+                // Show search results
+                document.getElementById('chatsList').classList.add('hidden');
+                document.getElementById('friendsList').classList.add('hidden');
+                resultsContainer.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Error performing search:', error);
+            }
+        }
+
+        function renderSearchResult(userId, userData) {
+            const resultItem = document.createElement('div');
+            resultItem.className = 'flex items-center space-x-3 p-3 rounded-lg bg-white/10 hover:bg-white/20 transition duration-300';
+            
+            resultItem.innerHTML = `
+                <div class="w-12 h-12 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center">
+                    <span class="text-white font-bold">${getInitials(userData.name)}</span>
+                </div>
+                <div class="flex-1">
+                    <p class="text-white font-semibold">${userData.name}</p>
+                    <p class="text-white/70 text-sm">${languageNames[userData.language]}</p>
+                </div>
+                <button onclick="startChat('${userId}')" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition duration-300">
+                    Chat
+                </button>
+            `;
+            
+            document.getElementById('searchResults').appendChild(resultItem);
+        }
+
+        // Settings functionality
+        function showSettings() {
+            const modal = document.getElementById('settingsModal');
+            
+            // Load current settings
+            db.collection('users').doc(currentUser.uid).get().then(doc => {
+                const userData = doc.data();
+                document.getElementById('settingsLanguage').value = userData.language;
+                document.getElementById('settingsName').value = userData.name;
+            });
+            
+            modal.classList.remove('hidden');
+        }
+
+        function hideSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        async function saveSettings() {
+            const newLanguage = document.getElementById('settingsLanguage').value;
+            const newName = document.getElementById('settingsName').value.trim();
+            
+            if (!newName) {
+                showNotification('Name cannot be empty', 'error');
+                return;
+            }
+            
+            try {
+                await db.collection('users').doc(currentUser.uid).update({
+                    language: newLanguage,
+                    name: newName
+                });
+                
+                // Update UI
+                document.getElementById('userName').textContent = newName;
+                document.getElementById('userInitials').textContent = getInitials(newName);
+                document.getElementById('userLanguage').textContent = languageNames[newLanguage];
+                
+                hideSettings();
+                showNotification('Settings updated successfully');
+                
+            } catch (error) {
+                console.error('Error updating settings:', error);
+                showNotification('Failed to update settings', 'error');
+            }
+        }
+
+        // Utility functions
+        function getInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return 'now';
+            if (diff < 3600000) return Math.floor(diff / 60000) + 'm';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + 'h';
+            if (diff < 604800000) return Math.floor(diff / 86400000) + 'd';
+            
+            return date.toLocaleDateString();
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notificationText');
+            
+            notificationText.textContent = message;
+            
+            if (type === 'error') {
+                notification.className = notification.className.replace('from-purple-500 to-indigo-500', 'from-red-500 to-pink-500');
+            } else {
+                notification.className = notification.className.replace('from-red-500 to-pink-500', 'from-purple-500 to-indigo-500');
+            }
+            
+            notification.classList.remove('hidden');
+            
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Handle window beforeunload to update online status
+        window.addEventListener('beforeunload', () => {
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).update({
+                    isOnline: false,
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        });
+
+        // Handle window focus/blur for online status
+        window.addEventListener('focus', () => {
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).update({
+                    isOnline: true
+                });
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).update({
+                    isOnline: false,
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        });
+
+        // Demo data - Remove in production
+        function createDemoUsers() {
+            const demoUsers = [
+                { name: 'Alice Johnson', email: 'alice@demo.com', language: 'en' },
+                { name: 'राज पटेल', email: 'raj@demo.com', language: 'hi' },
+                { name: 'Carlos García', email: 'carlos@demo.com', language: 'es' },
+                { name: 'Marie Dubois', email: 'marie@demo.com', language: 'fr' },
+                { name: '田中太郎', email: 'tanaka@demo.com', language: 'ja' }
+            ];
+            
+            // This is just for demo - don't use in production
+            console.log('Demo users available:', demoUsers);
+        }
+        
+        // Initialize demo data
+        createDemoUsers();
+    </script>
+</body>
+</html>
